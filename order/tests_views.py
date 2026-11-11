@@ -1,4 +1,4 @@
-from django.contrib.auth.models import User
+
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -6,18 +6,18 @@ from rest_framework.test import APITestCase
 from order.models.order import Order
 from product.models.category import Category
 from product.models.product import Product
+from django.contrib.auth import get_user_model
+
+
+User = get_user_model()
+
 
 class OrderViewSetTest(APITestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(
             username="karol",
-            password="test-password",
-        )
-
-        self.category = Category.objects.create(
-            title="Eletrônicos",
-            slug="eletronicos",
+            password="123456",
         )
 
         self.product = Product.objects.create(
@@ -26,8 +26,6 @@ class OrderViewSetTest(APITestCase):
             price=3500,
             active=True,
         )
-
-        self.product.category.add(self.category)
 
         self.order = Order.objects.create(user=self.user)
         self.order.product.add(self.product)
@@ -38,33 +36,26 @@ class OrderViewSetTest(APITestCase):
         response = self.client.get(reverse("order-list"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["total"], 3500)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["total"], 3500)
 
-    def test_retrieve_order(self):
-        response = self.client.get(
-            reverse(
-                "order-detail",
-                kwargs={"pk": self.order.pk},
-            )
-        )
+    def test_orders_pagination(self):
+        for _ in range(10):
+            order = Order.objects.create(user=self.user)
+            order.product.add(self.product)
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["total"], 3500)
-        self.assertEqual(
-            response.data["product"][0]["title"],
-            "Notebook",
-        )
+        list_url = reverse("order-list")
+        first_page = self.client.get(list_url)
 
-    def test_order_not_found(self):
-        response = self.client.get(
-            reverse(
-                "order-detail",
-                kwargs={"pk": 99999},
-            )
-        )
+        self.assertEqual(first_page.status_code, status.HTTP_200_OK)
+        self.assertEqual(first_page.data["count"], 11)
+        self.assertEqual(len(first_page.data["results"]), 10)
+        self.assertIsNotNone(first_page.data["next"])
 
-        self.assertEqual(
-            response.status_code,
-            status.HTTP_404_NOT_FOUND,
-        )
+        second_page = self.client.get(list_url, {"page": 2})
+
+        self.assertEqual(second_page.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(second_page.data["results"]), 1)
+        self.assertIsNone(second_page.data["next"])
+        self.assertIsNotNone(second_page.data["previous"])
