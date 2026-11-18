@@ -1,3 +1,4 @@
+
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -25,8 +26,34 @@ class CategoryViewSetTest(APITestCase):
         response = self.client.get(self.list_url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["slug"], "eletronicos")
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(
+            response.data["results"][0]["slug"],
+            "eletronicos",
+        )
+
+    def test_categories_pagination(self):
+        for number in range(2, 12):
+            Category.objects.create(
+                title=f"Categoria {number}",
+                slug=f"categoria-{number}",
+            )
+
+        first_page = self.client.get(self.list_url)
+
+        self.assertEqual(first_page.status_code, status.HTTP_200_OK)
+        self.assertEqual(first_page.data["count"], 11)
+        self.assertEqual(len(first_page.data["results"]), 10)
+        self.assertIsNotNone(first_page.data["next"])
+        self.assertIsNone(first_page.data["previous"])
+
+        second_page = self.client.get(self.list_url, {"page": 2})
+
+        self.assertEqual(second_page.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(second_page.data["results"]), 1)
+        self.assertIsNone(second_page.data["next"])
+        self.assertIsNotNone(second_page.data["previous"])
 
     def test_retrieve_category(self):
         response = self.client.get(self.detail_url)
@@ -102,8 +129,36 @@ class ProductViewSetTest(APITestCase):
         response = self.client.get(reverse("product-list"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["title"], "Notebook")
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(
+            response.data["results"][0]["title"],
+            "Notebook",
+        )
+
+    def test_products_pagination(self):
+        for number in range(2, 12):
+            Product.objects.create(
+                title=f"Produto {number}",
+                description=f"Descrição do produto {number}",
+                price=number * 100,
+                active=True,
+            )
+
+        list_url = reverse("product-list")
+        first_page = self.client.get(list_url)
+
+        self.assertEqual(first_page.status_code, status.HTTP_200_OK)
+        self.assertEqual(first_page.data["count"], 11)
+        self.assertEqual(len(first_page.data["results"]), 10)
+        self.assertIsNotNone(first_page.data["next"])
+
+        second_page = self.client.get(list_url, {"page": 2})
+
+        self.assertEqual(second_page.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(second_page.data["results"]), 1)
+        self.assertIsNone(second_page.data["next"])
+        self.assertIsNotNone(second_page.data["previous"])
 
     def test_retrieve_product_includes_categories(self):
         response = self.client.get(
