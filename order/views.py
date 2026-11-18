@@ -1,3 +1,5 @@
+
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ReadOnlyModelViewSet
 
 from order.models.order import Order
@@ -11,3 +13,4 @@ class OrderViewSet(ReadOnlyModelViewSet):
         .order_by("id")
     )
     serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated]
