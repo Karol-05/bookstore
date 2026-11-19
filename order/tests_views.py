@@ -14,6 +14,16 @@ User = get_user_model()
 
 class OrderViewSetTest(APITestCase):
 
+    def test_list_orders_without_authentication(self):
+        self.client.force_authenticate(user=None)
+
+        response = self.client.get(reverse("order-list"))
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_401_UNAUTHORIZED,
+        )
+
     def setUp(self):
         self.user = User.objects.create_user(
             username="karol",
